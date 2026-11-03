@@ -61,7 +61,8 @@ button.linkbtn{background:none;color:var(--purple);padding:6px 2px;margin-top:8p
 .showpw{display:flex;align-items:center;gap:8px;font-weight:500;margin:8px 0 0}.showpw input{width:auto}
 #pwBlock{margin-top:4px}
 #googleArea{margin-top:18px;padding-top:16px;border-top:1px solid #e3ddf5}
-#googleArea .or{font-size:.82rem;color:#6b6585;margin:0 0 10px;text-align:center}
+#googleArea .or,#trialArea .or{font-size:.82rem;color:#6b6585;margin:0 0 10px;text-align:center}
+#trialArea{margin-top:18px;padding-top:16px;border-top:1px solid #e3ddf5}#trialArea button{width:100%}
 a.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:46px;padding:10px 16px;border:1px solid #cfc7ec;border-radius:12px;background:#fff;color:#2b2540;font-weight:700;text-decoration:none}
 a.gbtn:focus-visible,a.gbtn:hover{border-color:var(--purple);outline:2px solid var(--purple);outline-offset:2px}
 a.gbtn svg{width:20px;height:20px;flex:none}
@@ -502,7 +503,7 @@ th,td{border-bottom-color:var(--line)}
     <div class="small">LEARN THE CRAFT. BUILD THE CONFIDENCE.</div>
     <h1>Your teaching journey starts here.</h1>
     <p id="loginHint">Sign in using the email address registered by your program administrator.</p>
-    <label for="email">Registered email</label>
+    <label for="email">Email</label>
     <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
     <div id="pwBlock">
       <label for="pw">Password</label>
@@ -522,6 +523,11 @@ th,td{border-bottom-color:var(--line)}
       <p class="or">or</p>
       <a id="googleBtn" class="gbtn" href="#" target="_top" rel="noopener"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.9-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg><span>Sign in with Google</span></a>
       <p class="small">Use the Google account with the same email your program administrator registered.</p>
+    </div>
+    <div id="trialArea">
+      <p class="or">New to Levelingo?</p>
+      <button class="secondary" id="trialBtn" type="button">Try Levelingo free for 3 days</button>
+      <p class="small">Enter your email above, then tap the button. We will email you a code to start. No payment needed.</p>
     </div>
     <div id="loginMsg" class="notice hidden" role="status" aria-live="polite"></div>
   </section>
@@ -871,7 +877,7 @@ th,td{border-bottom-color:var(--line)}
     el.classList.remove('hidden');
   }
   function hideMsg(id) { $(id).classList.add('hidden'); }
-  function isSessionError(e) { return !!(e && e.message && e.message.indexOf('session has expired') !== -1); }
+  function isSessionError(e) { return !!(e && e.message && (e.message.indexOf('session has expired') !== -1 || e.message.indexOf('trial has ended') !== -1)); }
 
   function backToLogin(message) {
     saveToken('');
@@ -973,6 +979,29 @@ th,td{border-bottom-color:var(--line)}
         showMsg('loginMsg', (e && e.message) || 'Could not send the code. Try again later.', true);
       })
       .requestLoginCode(email);
+  }
+
+  function startTrialFlow() {
+    var email = $('email').value.trim();
+    if (!email) { showMsg('loginMsg', 'Enter your email address above, then choose "Try Levelingo".', true); $('email').focus(); return; }
+    var btn = $('trialBtn');
+    btn.disabled = true;
+    btn.textContent = 'Starting your trial…';
+    google.script.run
+      .withSuccessHandler(function (r) {
+        btn.disabled = false;
+        btn.textContent = 'Try Levelingo free for 3 days';
+        show('codeArea');
+        showMsg('loginMsg', r.message, false);
+        startCooldown(r.cooldownSeconds || 30);
+        $('code').focus();
+      })
+      .withFailureHandler(function (e) {
+        btn.disabled = false;
+        btn.textContent = 'Try Levelingo free for 3 days';
+        showMsg('loginMsg', (e && e.message) || 'Could not start the trial. Try again later.', true);
+      })
+      .startTrial(email);
   }
 
   function verifyCode() {
@@ -3805,7 +3834,7 @@ th,td{border-bottom-color:var(--line)}
     google.script.run
       .withSuccessHandler(function (r) {
         people.data = r;
-        $('pplCount').textContent = r.activeLearners + ' of ' + r.limit + ' active learners (pilot limit).';
+        $('pplCount').textContent = r.activeLearners + ' of ' + r.limit + ' active learners (pilot limit; free trials not counted).';
         fillPathwaySelect($('bulkPathway'), r.pathways, r.defaultPathwayId, false);
         root.textContent = '';
         r.users.forEach(function (u) { root.appendChild(personCard(u, r)); });
@@ -3819,8 +3848,10 @@ th,td{border-bottom-color:var(--line)}
     var h = el('h3', '', u.display_name || u.email);
     h.appendChild(el('span', 'badge' + (u.role === 'admin' ? ' mastered' : ''), u.role));
     if (u.status !== 'active') h.appendChild(el('span', 'badge needs_practice', 'inactive'));
+    if (u.trial) h.appendChild(el('span', 'badge' + (u.trial_ended ? ' needs_practice' : ''), u.trial_ended ? 'trial ended' : 'trial'));
     body.appendChild(h);
     body.appendChild(el('div', 'small', u.email));
+    if (u.trial) body.appendChild(el('div', 'small', (u.trial_ended ? 'Trial ended ' : 'Trial ends ') + (u.trial_ends_at ? fmtDate(u.trial_ends_at) : '(no date)') + '. Edit to give full access.'));
     body.appendChild(el('div', 'small', (u.pathway_title ? 'Pathway: ' + u.pathway_title : (u.role === 'learner' ? 'No pathway' : '')) + (u.last_login_at ? ' · last sign-in ' + fmtDate(u.last_login_at) : ' · never signed in')));
     card.appendChild(body);
     var b = el('button', 'secondary', 'Edit'); b.type = 'button';
@@ -3838,6 +3869,11 @@ th,td{border-bottom-color:var(--line)}
     var role = document.createElement('select'); ['learner', 'admin'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; if (v === u.role) o.selected = true; role.appendChild(o); }); field('Role', role);
     var status = document.createElement('select'); ['active', 'inactive'].forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; if (v === u.status) o.selected = true; status.appendChild(o); }); field('Status', status);
     var pw = document.createElement('select'); fillPathwaySelect(pw, r.pathways, u.pathway_id, true); field('Learning pathway (learners)', pw);
+    var full = null;
+    if (u.trial) {
+      var fl = el('label', 'showpw'); full = document.createElement('input'); full.type = 'checkbox';
+      fl.append(full, document.createTextNode(' Give full access (ends the trial; counts toward the pilot limit)')); f.appendChild(fl);
+    }
     var msg = el('div', 'notice hidden');
     var row = el('div', 'actions');
     var save = el('button', '', 'Save'); save.type = 'button';
@@ -3867,7 +3903,7 @@ th,td{border-bottom-color:var(--line)}
           if (isSessionError(e)) { backToLogin(e.message); return; }
           msg.textContent = (e && e.message) || 'Could not save.'; msg.classList.add('error'); msg.classList.remove('hidden');
         })
-        .adminSaveUser(token, { user_id: u.user_id, email: email.value, display_name: name.value, role: role.value, status: status.value, pathway_id: role.value === 'learner' ? pw.value : '' });
+        .adminSaveUser(token, { user_id: u.user_id, email: email.value, display_name: name.value, role: role.value, status: status.value, pathway_id: role.value === 'learner' ? pw.value : '', full_access: !!(full && full.checked) });
     });
   }
 
@@ -4190,6 +4226,7 @@ th,td{border-bottom-color:var(--line)}
 
   /* ---------- wiring ---------- */
   $('requestBtn').addEventListener('click', requestCode);
+  $('trialBtn').addEventListener('click', startTrialFlow);
   $('verifyBtn').addEventListener('click', verifyCode);
   document.querySelectorAll('#bnav button').forEach(function (b) { b.addEventListener('click', function () { goTab(b.getAttribute('data-tab')); }); });
   try { new MutationObserver(syncNav).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] }); } catch (e) { /* the menu then only updates on navigation */ }
@@ -4273,4 +4310,4 @@ th,td{border-bottom-color:var(--line)}
 })();
 </script>
 </body>
-</html>
+</html>
