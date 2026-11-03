@@ -696,6 +696,7 @@ th,td{border-bottom-color:var(--line)}
         </details>
         <h3>People</h3>
         <div id="pplList"></div>
+        <div class="actions"><button class="secondary hidden" id="pplInactiveBtn" type="button">Show inactive</button></div>
       </div>
       <div id="reportView" class="hidden"></div>
       <div id="quizView" class="hidden"></div>
@@ -3862,7 +3863,7 @@ th,td{border-bottom-color:var(--line)}
   }
 
   /* ---------- administrator: people ---------- */
-  var people = { data: null };
+  var people = { data: null, showInactive: false };
 
   function showPeopleTab() {
     adminTab('people');
@@ -3882,11 +3883,21 @@ th,td{border-bottom-color:var(--line)}
         people.data = r;
         $('pplCount').textContent = r.activeLearners + ' of ' + r.limit + ' active learners (pilot limit; free trials not counted).';
         fillPathwaySelect($('bulkPathway'), r.pathways, r.defaultPathwayId, false);
-        root.textContent = '';
-        r.users.forEach(function (u) { root.appendChild(personCard(u, r)); });
+        renderPeople();
       })
       .withFailureHandler(function (e) { root.textContent = ''; failHandler('adminMsg', 'Could not load people.')(e); })
       .adminListUsers(token);
+  }
+
+  // Inactive accounts are hidden unless "Show inactive" is on (they can be reactivated or deleted from there).
+  function renderPeople() {
+    var r = people.data, root = $('pplList'); if (!r) return;
+    root.textContent = '';
+    var inactive = r.users.filter(function (u) { return u.status !== 'active'; }).length;
+    r.users.forEach(function (u) { if (u.status === 'active' || people.showInactive) root.appendChild(personCard(u, r)); });
+    var btn = $('pplInactiveBtn');
+    btn.textContent = people.showInactive ? 'Hide inactive' : 'Show inactive (' + inactive + ')';
+    btn.classList.toggle('hidden', !inactive);
   }
 
   function personCard(u, r) {
@@ -3927,6 +3938,26 @@ th,td{border-bottom-color:var(--line)}
     var reset = el('button', 'secondary', 'Reset password'); reset.type = 'button';
     if (!me_ || u.user_id !== me_.user_id) row.append(save, reset, cancel); else row.append(save, cancel);
     f.append(row, msg); card.appendChild(f);
+    if (u.status === 'inactive' && (!me_ || u.user_id !== me_.user_id)) {
+      var del = el('details'); del.appendChild(el('summary', '', 'Delete permanently'));
+      del.appendChild(el('p', 'small', 'This deletes the account and all of its progress, quiz answers, tasks, XP and password. It cannot be undone. Do it outside learning hours. Type the email to confirm:'));
+      var confirmIn = document.createElement('input'); confirmIn.type = 'email'; confirmIn.placeholder = u.email; confirmIn.setAttribute('aria-label', 'Type the email to confirm');
+      var delBtn = el('button', '', 'Delete this account'); delBtn.type = 'button'; delBtn.disabled = true;
+      confirmIn.addEventListener('input', function () { delBtn.disabled = confirmIn.value.trim().toLowerCase() !== String(u.email).toLowerCase(); });
+      var delRow = el('div', 'actions'); delRow.appendChild(delBtn);
+      del.append(confirmIn, delRow); f.appendChild(del);
+      delBtn.addEventListener('click', function () {
+        delBtn.disabled = true; delBtn.textContent = 'Deleting…'; msg.classList.add('hidden');
+        google.script.run
+          .withSuccessHandler(function () { loadPeople(); showMsg('adminMsg', 'Deleted ' + u.email + ' and all of its data.', false); })
+          .withFailureHandler(function (e) {
+            delBtn.disabled = false; delBtn.textContent = 'Delete this account';
+            if (isSessionError(e)) { backToLogin(e.message); return; }
+            msg.textContent = (e && e.message) || 'Could not delete.'; msg.classList.add('error'); msg.classList.remove('hidden');
+          })
+          .adminDeleteUser(token, u.user_id, confirmIn.value);
+      });
+    }
     reset.addEventListener('click', function () {
       if (!window.confirm('Remove the password of ' + (u.display_name || u.email) + '? They will sign in with an emailed code and choose a new one.')) return;
       reset.disabled = true; msg.classList.add('hidden');
@@ -4273,6 +4304,7 @@ th,td{border-bottom-color:var(--line)}
   /* ---------- wiring ---------- */
   $('requestBtn').addEventListener('click', requestCode);
   $('trialBtn').addEventListener('click', openTrial);
+  $('pplInactiveBtn').addEventListener('click', function () { people.showInactive = !people.showInactive; renderPeople(); });
   $('trialStartBtn').addEventListener('click', startTrialFlow);
   $('trialBackBtn').addEventListener('click', closeTrial);
   $('verifyBtn').addEventListener('click', verifyCode);
