@@ -269,6 +269,7 @@ h3{font-weight:600}
 label{font-weight:600}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.4rem;color:var(--ink);letter-spacing:-.02em;line-height:1}
 .brand b{color:var(--purple);font-weight:800}
+#trialPill{position:fixed;top:calc(10px + env(safe-area-inset-top, 0px));right:calc(10px + env(safe-area-inset-right, 0px));z-index:40;background:var(--purple);color:#fff;font-weight:700;font-size:.8rem;padding:7px 12px;border-radius:999px;box-shadow:0 4px 14px rgba(38,32,68,.18)}
 .brand svg{width:30px;height:30px;flex:none}
 .panel{border-color:var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-md)}
 input,textarea,select{border-color:#D5CBE6;border-radius:var(--r-sm)}
@@ -480,6 +481,7 @@ th,td{border-bottom-color:var(--line)}
 </head>
 <body>
 <main class="wrap">
+  <div id="trialPill" class="hidden" role="status" aria-live="polite"></div>
   <div class="brand" role="img" aria-label="Levelingo"><svg viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="9" fill="#6D4AFF"/><path d="M9 16.5l7-6.5 7 6.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 23l7-6.5 7 6.5" fill="none" stroke="#FFCE56" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Level<b>ingo</b></span></div>
 
   <section id="boot" class="panel hidden" aria-live="polite"><p>Checking your session…</p></section>
@@ -886,7 +888,28 @@ th,td{border-bottom-color:var(--line)}
   function hideMsg(id) { $(id).classList.add('hidden'); }
   function isSessionError(e) { return !!(e && e.message && (e.message.indexOf('session has expired') !== -1 || e.message.indexOf('trial has ended') !== -1)); }
 
+  // Trial accounts: a pill in the top right corner with the time left, and no Report tab (the server refuses it too).
+  var trialEnd = 0, trialTimer = null;
+  function trialLeft(ms) {
+    var m = Math.floor(ms / 60000), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+    return d > 0 ? d + 'd ' + h + 'h' : (h > 0 ? h + 'h ' + mm + 'm' : Math.max(1, mm) + 'm');
+  }
+  function tickTrial() {
+    var left = trialEnd - Date.now();
+    if (left <= 0) { setTrial(''); backToLogin('Your free Levelingo trial has ended. To keep learning, message @dnshlutfiii on Instagram.'); return; }
+    $('trialPill').textContent = 'Free trial · ' + trialLeft(left) + ' left';
+  }
+  function setTrial(endsAt) {
+    clearInterval(trialTimer); trialTimer = null;
+    trialEnd = endsAt ? Date.parse(endsAt) : 0;
+    var on = !!trialEnd && isFinite(trialEnd);
+    $('trialPill').classList.toggle('hidden', !on);
+    $('navReport').classList.toggle('hidden', on);
+    if (on) { tickTrial(); trialTimer = setInterval(tickTrial, 60000); }
+  }
+
   function backToLogin(message) {
+    setTrial('');
     saveToken('');
     player.unit = null;
     stopTimer(); stopAutosave(); hide('boot'); hide('dashboard'); hide('player'); hide('quiz'); hide('task'); hide('portfolio'); hide('report'); hide('admin'); hide('intro'); hide('onboarding'); hide('pwSetup'); hide('daily'); hide('leaderboard'); hide('umenu');
@@ -1296,6 +1319,7 @@ th,td{border-bottom-color:var(--line)}
     $('umEmail').textContent = (r.user && r.user.email) || '';
     $('umNameInput').value = (r.user && r.user.display_name) || '';
     me_ = r.user || null;
+    setTrial(me_ && me_.trial_ends_at);
     if (r.user && r.user.role === 'admin') show('adminBtn'); else hide('adminBtn');
     renderXpBox(r.xp);
     renderBadges(r.badges || [], r.badges_new || []);
