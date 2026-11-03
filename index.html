@@ -63,6 +63,8 @@ button.linkbtn{background:none;color:var(--purple);padding:6px 2px;margin-top:8p
 #googleArea{margin-top:18px;padding-top:16px;border-top:1px solid #e3ddf5}
 #googleArea .or,#trialArea .or{font-size:.82rem;color:#6b6585;margin:0 0 10px;text-align:center}
 #trialArea{margin-top:18px;padding-top:16px;border-top:1px solid #e3ddf5}#trialArea button{width:100%}
+#trialStart{display:none}#login.trialmode #trialStart{display:block}
+#login.trialmode #pwBlock,#login.trialmode #requestRow,#login.trialmode #googleArea,#login.trialmode #trialArea{display:none!important}
 a.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:46px;padding:10px 16px;border:1px solid #cfc7ec;border-radius:12px;background:#fff;color:#2b2540;font-weight:700;text-decoration:none}
 a.gbtn:focus-visible,a.gbtn:hover{border-color:var(--purple);outline:2px solid var(--purple);outline-offset:2px}
 a.gbtn svg{width:20px;height:20px;flex:none}
@@ -501,10 +503,15 @@ th,td{border-bottom-color:var(--line)}
 
   <section id="login" class="panel hidden">
     <div class="small">LEARN THE CRAFT. BUILD THE CONFIDENCE.</div>
-    <h1>Your teaching journey starts here.</h1>
+    <h1 id="loginTitle">Your teaching journey starts here.</h1>
     <p id="loginHint">Sign in using the email address registered by your program administrator.</p>
     <label for="email">Email</label>
     <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+    <div id="trialStart">
+      <div class="actions"><button id="trialStartBtn" type="button">Start my free trial</button></div>
+      <p class="small">One free trial per email. No payment needed.</p>
+      <button class="linkbtn" id="trialBackBtn" type="button">I already have an account</button>
+    </div>
     <div id="pwBlock">
       <label for="pw">Password</label>
       <input id="pw" type="password" autocomplete="current-password" placeholder="Your password">
@@ -512,7 +519,7 @@ th,td{border-bottom-color:var(--line)}
       <div class="actions"><button id="passwordBtn" type="button">Sign in</button><button class="linkbtn" id="forgotBtn" type="button">Forgot password?</button></div>
       <p class="small">First time, or no password yet? Use the emailed code below, then you can create a password.</p>
     </div>
-    <div class="actions"><button class="secondary" id="requestBtn" type="button">Email me a sign-in code</button></div>
+    <div class="actions" id="requestRow"><button class="secondary" id="requestBtn" type="button">Email me a sign-in code</button></div>
     <div id="codeArea" class="hidden">
       <label for="code">6-digit verification code</label>
       <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
@@ -527,7 +534,7 @@ th,td{border-bottom-color:var(--line)}
     <div id="trialArea">
       <p class="or">New to Levelingo?</p>
       <button class="secondary" id="trialBtn" type="button">Try Levelingo free for 3 days</button>
-      <p class="small">Enter your email above, then tap the button. We will email you a code to start. No payment needed.</p>
+      <p class="small">Free for 3 days. No payment needed.</p>
     </div>
     <div id="loginMsg" class="notice hidden" role="status" aria-live="polite"></div>
   </section>
@@ -883,7 +890,7 @@ th,td{border-bottom-color:var(--line)}
     saveToken('');
     player.unit = null;
     stopTimer(); stopAutosave(); hide('boot'); hide('dashboard'); hide('player'); hide('quiz'); hide('task'); hide('portfolio'); hide('report'); hide('admin'); hide('intro'); hide('onboarding'); hide('pwSetup'); hide('daily'); hide('leaderboard'); hide('umenu');
-    show('login'); loadLoginOptions();
+    show('login'); closeTrial(); loadLoginOptions();
     if (message) showMsg('loginMsg', message, true); else hideMsg('loginMsg');
   }
 
@@ -981,24 +988,39 @@ th,td{border-bottom-color:var(--line)}
       .requestLoginCode(email);
   }
 
+  // "Try Levelingo": the sign-in panel switches to a short trial form (same email field and code box).
+  var loginText = null;
+  function openTrial() {
+    if (!loginText) loginText = { title: $('loginTitle').textContent, hint: $('loginHint').textContent };
+    $('login').classList.add('trialmode');
+    $('loginTitle').textContent = 'Try Levelingo free for 3 days';
+    $('loginHint').textContent = 'Enter your email and we will send you a 6-digit code to start your trial.';
+    hideMsg('loginMsg'); hide('codeArea');
+    $('email').focus();
+  }
+  function closeTrial() {
+    $('login').classList.remove('trialmode');
+    if (loginText) { $('loginTitle').textContent = loginText.title; $('loginHint').textContent = loginText.hint; }
+    $('trialStartBtn').disabled = false; $('trialStartBtn').textContent = 'Start my free trial';
+    hideMsg('loginMsg');
+  }
   function startTrialFlow() {
     var email = $('email').value.trim();
-    if (!email) { showMsg('loginMsg', 'Enter your email address above, then choose "Try Levelingo".', true); $('email').focus(); return; }
-    var btn = $('trialBtn');
+    if (!email) { showMsg('loginMsg', 'Enter your email address.', true); $('email').focus(); return; }
+    var btn = $('trialStartBtn');
     btn.disabled = true;
     btn.textContent = 'Starting your trial…';
     google.script.run
       .withSuccessHandler(function (r) {
         btn.disabled = false;
-        btn.textContent = 'Try Levelingo free for 3 days';
+        btn.textContent = 'Send a new code';
         show('codeArea');
         showMsg('loginMsg', r.message, false);
-        startCooldown(r.cooldownSeconds || 30);
         $('code').focus();
       })
       .withFailureHandler(function (e) {
         btn.disabled = false;
-        btn.textContent = 'Try Levelingo free for 3 days';
+        btn.textContent = 'Start my free trial';
         showMsg('loginMsg', (e && e.message) || 'Could not start the trial. Try again later.', true);
       })
       .startTrial(email);
@@ -4226,7 +4248,9 @@ th,td{border-bottom-color:var(--line)}
 
   /* ---------- wiring ---------- */
   $('requestBtn').addEventListener('click', requestCode);
-  $('trialBtn').addEventListener('click', startTrialFlow);
+  $('trialBtn').addEventListener('click', openTrial);
+  $('trialStartBtn').addEventListener('click', startTrialFlow);
+  $('trialBackBtn').addEventListener('click', closeTrial);
   $('verifyBtn').addEventListener('click', verifyCode);
   document.querySelectorAll('#bnav button').forEach(function (b) { b.addEventListener('click', function () { goTab(b.getAttribute('data-tab')); }); });
   try { new MutationObserver(syncNav).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] }); } catch (e) { /* the menu then only updates on navigation */ }
