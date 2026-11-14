@@ -1,0 +1,18 @@
+{
+  "id": "/levelingo/",
+  "name": "Levelingo",
+  "short_name": "Levelingo",
+  "description": "Level up your teaching: a learning pathway for English teachers and TKT-style practice.",
+  "lang": "en",
+  "start_url": "/levelingo/",
+  "scope": "/levelingo/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF7E8",
+  "theme_color": "#6D4AFF",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
