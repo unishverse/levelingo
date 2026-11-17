@@ -550,8 +550,8 @@ th,td{border-bottom-color:var(--line)}
     </div>
     <div id="trialArea">
       <p class="or">New to Levelingo?</p>
-      <button class="secondary" id="trialBtn" type="button">Try Levelingo free for 3 days</button>
-      <p class="small">Free for 3 days. No payment needed.</p>
+      <button class="secondary" id="trialBtn" type="button">Try Levelingo free for 14 days</button>
+      <p class="small">Free for 14 days. No payment needed.</p>
     </div>
     <div id="loginMsg" class="notice hidden" role="status" aria-live="polite"></div>
   </section>
@@ -1048,7 +1048,7 @@ th,td{border-bottom-color:var(--line)}
   function openTrial() {
     if (!loginText) loginText = { title: $('loginTitle').textContent, hint: $('loginHint').textContent };
     $('login').classList.add('trialmode');
-    $('loginTitle').textContent = 'Try Levelingo free for 3 days';
+    $('loginTitle').textContent = 'Try Levelingo free for 14 days';
     $('loginHint').textContent = 'Enter your email and we will send you a 6-digit code to start your trial.';
     hideMsg('loginMsg'); hide('codeArea');
     $('email').focus();
